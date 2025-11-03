@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import CropImage from "./CropImage";
+import { FaGithub } from "react-icons/fa";
 
 type Transform = { rotateDeg: number; flipX: boolean; flipY: boolean };
 type ActionType =
@@ -105,141 +106,174 @@ export default function ImageEditor() {
   };
 
   return (
-    <div style={{ display: "flex", width: "100vw", justifyContent: "center" }}>
-      <div style={styles.page}>
-        <header style={styles.header}>
-          <h1 style={{ margin: 0, fontSize: 18, color: "#111827" }}>
-            도형 회전하기 연습
-          </h1>
-          <div
+    <div>
+      <div
+        style={{ display: "flex", width: "100vw", justifyContent: "center" }}
+      >
+        <div style={styles.page}>
+          <header style={styles.header}>
+            <h1 style={{ margin: 0, fontSize: 18, color: "#111827" }}>
+              도형 회전하기 연습
+            </h1>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 8,
+                marginLeft: "20px",
+                color: "#111827",
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => e.target.files && onFile(e.target.files[0])}
+              />
+              {src && (
+                <>
+                  {/* 크롭 모드 토글 */}
+                  <button onClick={() => setCropMode((v) => !v)}>
+                    {cropMode ? "크롭 모드 종료" : "크롭 모드"}
+                  </button>
+                  <button onClick={() => apply("rotateLeft45")}>
+                    ↶ 왼쪽 45° 회전
+                  </button>
+                  <button onClick={() => apply("rotateRight45")}>
+                    ↷ 오른쪽 45° 회전
+                  </button>
+                  <button onClick={() => apply("flipX")}>좌우반전</button>
+                  <button onClick={() => apply("flipY")}>상하반전</button>
+                  <button onClick={() => apply("reset")}>전체 초기화</button>
+                  <button onClick={undo} disabled={!history.length}>
+                    하나 지움
+                  </button>
+                </>
+              )}
+            </div>
+          </header>
+
+          {!src ? (
+            <div style={{ padding: 24, color: "#6b7280" }}>
+              이미지를 업로드하세요.
+            </div>
+          ) : (
+            <main style={styles.main}>
+              {/* 좌: 원본(크롭 모드일 때 크롭 컴포넌트 표시) / 우: 결과 */}
+              <section style={styles.stageWrap}>
+                <div style={styles.stageCol}>
+                  <div style={styles.stageTitle}>전 (원본)</div>
+                  <div style={styles.stage}>
+                    {!cropMode ? (
+                      <img
+                        src={src}
+                        alt="original"
+                        style={{ maxWidth: "100%", objectFit: "contain" }}
+                      />
+                    ) : (
+                      <CropImage
+                        src={src}
+                        onCropped={handleCropped}
+                        onCancel={() => setCropMode(false)}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.stageCol}>
+                  <div style={styles.stageTitle}>후</div>
+                  <div style={styles.stage}>
+                    <img
+                      ref={imgRef}
+                      src={src}
+                      alt="preview"
+                      style={previewStyle}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* 우: 히스토리(버튼 로그 + 썸네일) */}
+              <aside style={styles.sidebar}>
+                <div
+                  style={{ fontWeight: 600, marginBottom: 8, color: "#111827" }}
+                >
+                  액션 히스토리
+                </div>
+                {!history.length && (
+                  <div style={{ color: "#6b7280", fontSize: 14 }}>
+                    아직 수행한 액션이 없습니다.
+                  </div>
+                )}
+                <ul style={styles.historyList}>
+                  {history.map((a) => (
+                    <li key={a.id} style={styles.historyItem}>
+                      <div style={styles.thumb}>
+                        {/* 썸네일은 CSS transform으로 빠르게 미리보기 */}
+                        <img
+                          src={src!}
+                          alt={`step ${a.id}`}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                            transform: `rotate(${
+                              a.after.rotateDeg
+                            }deg) scaleX(${a.after.flipX ? -1 : 1}) scaleY(${
+                              a.after.flipY ? -1 : 1
+                            })`,
+                            transformOrigin: "center center",
+                          }}
+                        />
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                          color: "#111827",
+                        }}
+                      >
+                        <div style={{ fontWeight: 600 }}>
+                          #{a.id} {a.label}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            </main>
+          )}
+        </div>
+      </div>
+      <footer
+        style={{
+          width: "100%",
+          textAlign: "center",
+          padding: "16px 0",
+          color: "#6b7280",
+          fontSize: "14px",
+          marginTop: "40px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+          <span>© 2025 Minhee Kim</span>
+          <a
+            href="https://github.com/heehminh/image-tools"
             style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 8,
-              marginLeft: "20px",
               color: "#111827",
+              display: "flex",
+              alignItems: "center",
+              position: "relative",
+              zIndex: 10,
+              cursor: "pointer",
             }}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => e.target.files && onFile(e.target.files[0])}
-            />
-            {src && (
-              <>
-                {/* 크롭 모드 토글 */}
-                <button onClick={() => setCropMode((v) => !v)}>
-                  {cropMode ? "크롭 모드 종료" : "크롭 모드"}
-                </button>
-                <button onClick={() => apply("rotateLeft45")}>
-                  ↶ 왼쪽 45° 회전
-                </button>
-                <button onClick={() => apply("rotateRight45")}>
-                  ↷ 오른쪽 45° 회전
-                </button>
-                <button onClick={() => apply("flipX")}>좌우반전</button>
-                <button onClick={() => apply("flipY")}>상하반전</button>
-                <button onClick={() => apply("reset")}>전체 초기화</button>
-                <button onClick={undo} disabled={!history.length}>
-                  하나 지움
-                </button>
-              </>
-            )}
-          </div>
-        </header>
-
-        {!src ? (
-          <div style={{ padding: 24, color: "#6b7280" }}>
-            이미지를 업로드하세요.
-          </div>
-        ) : (
-          <main style={styles.main}>
-            {/* 좌: 원본(크롭 모드일 때 크롭 컴포넌트 표시) / 우: 결과 */}
-            <section style={styles.stageWrap}>
-              <div style={styles.stageCol}>
-                <div style={styles.stageTitle}>전 (원본)</div>
-                <div style={styles.stage}>
-                  {!cropMode ? (
-                    <img
-                      src={src}
-                      alt="original"
-                      style={{ maxWidth: "100%", objectFit: "contain" }}
-                    />
-                  ) : (
-                    <CropImage
-                      src={src}
-                      onCropped={handleCropped}
-                      onCancel={() => setCropMode(false)}
-                    />
-                  )}
-                </div>
-              </div>
-
-              <div style={styles.stageCol}>
-                <div style={styles.stageTitle}>후</div>
-                <div style={styles.stage}>
-                  <img
-                    ref={imgRef}
-                    src={src}
-                    alt="preview"
-                    style={previewStyle}
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* 우: 히스토리(버튼 로그 + 썸네일) */}
-            <aside style={styles.sidebar}>
-              <div
-                style={{ fontWeight: 600, marginBottom: 8, color: "#111827" }}
-              >
-                액션 히스토리
-              </div>
-              {!history.length && (
-                <div style={{ color: "#6b7280", fontSize: 14 }}>
-                  아직 수행한 액션이 없습니다.
-                </div>
-              )}
-              <ul style={styles.historyList}>
-                {history.map((a) => (
-                  <li key={a.id} style={styles.historyItem}>
-                    <div style={styles.thumb}>
-                      {/* 썸네일은 CSS transform으로 빠르게 미리보기 */}
-                      <img
-                        src={src!}
-                        alt={`step ${a.id}`}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                          transform: `rotate(${a.after.rotateDeg}deg) scaleX(${
-                            a.after.flipX ? -1 : 1
-                          }) scaleY(${a.after.flipY ? -1 : 1})`,
-                          transformOrigin: "center center",
-                        }}
-                      />
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                        color: "#111827",
-                      }}
-                    >
-                      <div style={{ fontWeight: 600 }}>
-                        #{a.id} {a.label}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </aside>
-          </main>
-        )}
-      </div>
+            <FaGithub size={18} />
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
