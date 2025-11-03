@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import CropImage from "./CropImage";
 
 type Transform = { rotateDeg: number; flipX: boolean; flipY: boolean };
 type ActionType =
@@ -22,8 +23,9 @@ export default function ImageEditor() {
   const [src, setSrc] = useState<string | null>(null);
   const [t, setT] = useState<Transform>(initialT);
   const [history, setHistory] = useState<Action[]>([]);
-  const idRef = useRef(0); // StrictMode에서도 중복 방지용
+  const [cropMode, setCropMode] = useState(false);
 
+  const idRef = useRef(0); // StrictMode에서도 중복 방지용
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +36,7 @@ export default function ImageEditor() {
     setT(initialT);
     setHistory([]);
     idRef.current = 0;
+    setCropMode(false);
   };
 
   const pushAction = (type: ActionType, label: string, next: Transform) => {
@@ -52,7 +55,6 @@ export default function ImageEditor() {
       return;
     }
 
-    // 현재 상태(t) 기준으로 next 계산
     const next: Transform = { ...t };
     if (type === "rotateLeft45") next.rotateDeg = degNorm(t.rotateDeg - 45);
     if (type === "rotateRight45") next.rotateDeg = degNorm(t.rotateDeg + 45);
@@ -93,6 +95,15 @@ export default function ImageEditor() {
     [t]
   );
 
+  // 크롭 결과를 현재 이미지로 교체 (히스토리/변환 초기화)
+  const handleCropped = (dataUrl: string) => {
+    setSrc(dataUrl);
+    setT(initialT);
+    setHistory([]);
+    idRef.current = 0;
+    setCropMode(false);
+  };
+
   return (
     <div style={{ display: "flex", width: "100vw", justifyContent: "center" }}>
       <div style={styles.page}>
@@ -118,6 +129,10 @@ export default function ImageEditor() {
             />
             {src && (
               <>
+                {/* 크롭 모드 토글 */}
+                <button onClick={() => setCropMode((v) => !v)}>
+                  {cropMode ? "크롭 모드 종료" : "크롭 모드"}
+                </button>
                 <button onClick={() => apply("rotateLeft45")}>
                   ↶ 왼쪽 45° 회전
                 </button>
@@ -141,16 +156,24 @@ export default function ImageEditor() {
           </div>
         ) : (
           <main style={styles.main}>
-            {/* 좌: 원본 / 우: 결과 */}
+            {/* 좌: 원본(크롭 모드일 때 크롭 컴포넌트 표시) / 우: 결과 */}
             <section style={styles.stageWrap}>
               <div style={styles.stageCol}>
                 <div style={styles.stageTitle}>전 (원본)</div>
                 <div style={styles.stage}>
-                  <img
-                    src={src}
-                    alt="original"
-                    style={{ maxWidth: "100%", objectFit: "contain" }}
-                  />
+                  {!cropMode ? (
+                    <img
+                      src={src}
+                      alt="original"
+                      style={{ maxWidth: "100%", objectFit: "contain" }}
+                    />
+                  ) : (
+                    <CropImage
+                      src={src}
+                      onCropped={handleCropped}
+                      onCancel={() => setCropMode(false)}
+                    />
+                  )}
                 </div>
               </div>
 
