@@ -218,9 +218,11 @@ export default function ImageEditor() {
                             width: "100%",
                             height: "100%",
                             objectFit: "contain",
-                            transform: `scaleX(${t.flipX ? -1 : 1}) scaleY(${
-                              t.flipY ? -1 : 1
-                            }) rotate(${t.rotateDeg}deg)`,
+                            transform: `scaleX(${
+                              a.after.flipX ? -1 : 1
+                            }) scaleY(${a.after.flipY ? -1 : 1}) rotate(${
+                              a.after.rotateDeg
+                            }deg)`,
                             transformOrigin: "center center",
                           }}
                         />
