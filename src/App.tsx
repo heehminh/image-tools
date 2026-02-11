@@ -268,7 +268,6 @@ export default function ImageEditor() {
       >
         <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
           <span>© 2025 Minhee Kim</span>
-          {views !== null && <span>👀 {views.toLocaleString()} views</span>}
           <a
             href="https://github.com/heehminh/image-tools"
             target="_blank"
@@ -277,6 +276,7 @@ export default function ImageEditor() {
           >
             <FaGithub size={18} />
           </a>
+          {views !== null && <span>👀 {views.toLocaleString()} views</span>}
         </div>
       </footer>
     </div>
