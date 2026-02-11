@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import CropImage from "./CropImage";
 import { FaGithub } from "react-icons/fa";
+import { useEffect } from "react";
 
 type Transform = { rotateDeg: number; flipX: boolean; flipY: boolean };
 type ActionType =
@@ -68,10 +69,10 @@ export default function ImageEditor() {
       type === "rotateLeft45"
         ? "왼쪽 45°"
         : type === "rotateRight45"
-        ? "오른쪽 45°"
-        : type === "flipX"
-        ? "좌우반전"
-        : "상하반전";
+          ? "오른쪽 45°"
+          : type === "flipX"
+            ? "좌우반전"
+            : "상하반전";
 
     pushAction(type, label, next);
   };
@@ -93,7 +94,7 @@ export default function ImageEditor() {
       }) rotate(${t.rotateDeg}deg)`,
       transformOrigin: "center center",
     }),
-    [t]
+    [t],
   );
 
   // 크롭 결과를 현재 이미지로 교체 (히스토리/변환 초기화)
@@ -104,6 +105,14 @@ export default function ImageEditor() {
     idRef.current = 0;
     setCropMode(false);
   };
+
+  const [views, setViews] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/views")
+      .then((res) => res.json())
+      .then((data) => setViews(data.views));
+  }, []);
 
   return (
     <div>
@@ -257,18 +266,14 @@ export default function ImageEditor() {
           marginTop: "40px",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
           <span>© 2025 Minhee Kim</span>
+          {views !== null && <span>👀 {views.toLocaleString()} views</span>}
           <a
             href="https://github.com/heehminh/image-tools"
-            style={{
-              color: "#111827",
-              display: "flex",
-              alignItems: "center",
-              position: "relative",
-              zIndex: 10,
-              cursor: "pointer",
-            }}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "#111827", display: "flex", alignItems: "center" }}
           >
             <FaGithub size={18} />
           </a>
