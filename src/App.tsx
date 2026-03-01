@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CropImage from "./CropImage";
 import { FaGithub } from "react-icons/fa";
-import { useEffect } from "react";
 
 type Transform = { rotateDeg: number; flipX: boolean; flipY: boolean };
 type ActionType =
@@ -10,6 +9,7 @@ type ActionType =
   | "flipX"
   | "flipY"
   | "reset";
+type TransformActionType = Exclude<ActionType, "reset">;
 type Action = {
   id: number;
   type: ActionType;
@@ -20,6 +20,21 @@ type Action = {
 
 const initialT: Transform = { rotateDeg: 0, flipX: false, flipY: false };
 const degNorm = (d: number) => ((d % 360) + 360) % 360;
+const transformActionMap: Record<
+  TransformActionType,
+  { label: string; apply: (prev: Transform) => Transform }
+> = {
+  rotateLeft45: {
+    label: "왼쪽 45°",
+    apply: (prev) => ({ ...prev, rotateDeg: degNorm(prev.rotateDeg - 45) }),
+  },
+  rotateRight45: {
+    label: "오른쪽 45°",
+    apply: (prev) => ({ ...prev, rotateDeg: degNorm(prev.rotateDeg + 45) }),
+  },
+  flipX: { label: "좌우반전", apply: (prev) => ({ ...prev, flipX: !prev.flipX }) },
+  flipY: { label: "상하반전", apply: (prev) => ({ ...prev, flipY: !prev.flipY }) },
+};
 
 export default function ImageEditor() {
   const [src, setSrc] = useState<string | null>(null);
@@ -28,17 +43,31 @@ export default function ImageEditor() {
   const [cropMode, setCropMode] = useState(false);
 
   const idRef = useRef(0); // StrictMode에서도 중복 방지용
+  const objectUrlRef = useRef<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const onFile = (f: File) => {
-    const url = URL.createObjectURL(f);
-    setSrc(url);
-    // 새 이미지면 전체 초기화
+  const resetEdits = useCallback((options?: { exitCropMode?: boolean }) => {
     setT(initialT);
     setHistory([]);
     idRef.current = 0;
-    setCropMode(false);
+    if (options?.exitCropMode) setCropMode(false);
+  }, []);
+
+  const revokeObjectUrl = useCallback(() => {
+    if (!objectUrlRef.current) return;
+    URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+  }, []);
+
+  useEffect(() => () => revokeObjectUrl(), [revokeObjectUrl]);
+
+  const onFile = (f: File) => {
+    revokeObjectUrl();
+    const url = URL.createObjectURL(f);
+    objectUrlRef.current = url;
+    setSrc(url);
+    resetEdits({ exitCropMode: true });
   };
 
   const pushAction = (type: ActionType, label: string, next: Transform) => {
@@ -51,30 +80,16 @@ export default function ImageEditor() {
 
   const apply = (type: ActionType) => {
     if (type === "reset") {
-      setT(initialT);
-      setHistory([]);
-      idRef.current = 0;
+      resetEdits();
       return;
     }
 
-    const next: Transform = { ...t };
-    if (type === "rotateLeft45") next.rotateDeg = degNorm(t.rotateDeg - 45);
-    if (type === "rotateRight45") next.rotateDeg = degNorm(t.rotateDeg + 45);
-    if (type === "flipX") next.flipX = !t.flipX;
-    if (type === "flipY") next.flipY = !t.flipY;
-
-    setT(next);
-
-    const label =
-      type === "rotateLeft45"
-        ? "왼쪽 45°"
-        : type === "rotateRight45"
-          ? "오른쪽 45°"
-          : type === "flipX"
-            ? "좌우반전"
-            : "상하반전";
-
-    pushAction(type, label, next);
+    const config = transformActionMap[type];
+    setT((prev) => {
+      const next = config.apply(prev);
+      pushAction(type, config.label, next);
+      return next;
+    });
   };
 
   const undo = () => {
@@ -99,11 +114,9 @@ export default function ImageEditor() {
 
   // 크롭 결과를 현재 이미지로 교체 (히스토리/변환 초기화)
   const handleCropped = (dataUrl: string) => {
+    revokeObjectUrl();
     setSrc(dataUrl);
-    setT(initialT);
-    setHistory([]);
-    idRef.current = 0;
-    setCropMode(false);
+    resetEdits({ exitCropMode: true });
   };
 
   const [views, setViews] = useState<number | null>(null);
