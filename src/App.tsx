@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CropImage from "./CropImage";
 import { FaGithub } from "react-icons/fa";
 
-type Transform = { rotateDeg: number; flipX: boolean; flipY: boolean };
 type ActionType =
   | "rotateLeft45"
   | "rotateRight45"
@@ -15,30 +14,39 @@ type Action = {
   type: ActionType;
   label: string;
   at: string; // 저장만, 표시 안 함
-  after: Transform; // 액션 적용 후 상태
+  after: TransformActionType[]; // 액션 적용 후 변환 순서
 };
 
-const initialT: Transform = { rotateDeg: 0, flipX: false, flipY: false };
-const degNorm = (d: number) => ((d % 360) + 360) % 360;
-const transformActionMap: Record<
-  TransformActionType,
-  { label: string; apply: (prev: Transform) => Transform }
-> = {
-  rotateLeft45: {
-    label: "왼쪽 45°",
-    apply: (prev) => ({ ...prev, rotateDeg: degNorm(prev.rotateDeg - 45) }),
-  },
-  rotateRight45: {
-    label: "오른쪽 45°",
-    apply: (prev) => ({ ...prev, rotateDeg: degNorm(prev.rotateDeg + 45) }),
-  },
-  flipX: { label: "좌우반전", apply: (prev) => ({ ...prev, flipX: !prev.flipX }) },
-  flipY: { label: "상하반전", apply: (prev) => ({ ...prev, flipY: !prev.flipY }) },
+const transformActionMap: Record<TransformActionType, { label: string }> = {
+  rotateLeft45: { label: "왼쪽 45°" },
+  rotateRight45: { label: "오른쪽 45°" },
+  flipX: { label: "좌우반전" },
+  flipY: { label: "상하반전" },
 };
+
+const transformCssMap: Record<TransformActionType, string> = {
+  rotateLeft45: "rotate(-45deg)",
+  rotateRight45: "rotate(45deg)",
+  flipX: "scaleX(-1)",
+  flipY: "scaleY(-1)",
+};
+
+const buildTransformStyle = (
+  actions: TransformActionType[],
+): React.CSSProperties => ({
+  maxWidth: "100%",
+  transform:
+    actions.length > 0
+      ? [...actions]
+          .reverse()
+          .map((action) => transformCssMap[action])
+          .join(" ")
+      : "none",
+  transformOrigin: "center center",
+});
 
 export default function ImageEditor() {
   const [src, setSrc] = useState<string | null>(null);
-  const [t, setT] = useState<Transform>(initialT);
   const [history, setHistory] = useState<Action[]>([]);
   const [cropMode, setCropMode] = useState(false);
 
@@ -48,7 +56,6 @@ export default function ImageEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetEdits = useCallback((options?: { exitCropMode?: boolean }) => {
-    setT(initialT);
     setHistory([]);
     idRef.current = 0;
     if (options?.exitCropMode) setCropMode(false);
@@ -70,13 +77,7 @@ export default function ImageEditor() {
     resetEdits({ exitCropMode: true });
   };
 
-  const pushAction = (type: ActionType, label: string, next: Transform) => {
-    const id = ++idRef.current;
-    setHistory((h) => [
-      ...h,
-      { id, type, label, at: new Date().toLocaleTimeString(), after: next },
-    ]);
-  };
+  const currentTransforms = history.at(-1)?.after ?? [];
 
   const apply = (type: ActionType) => {
     if (type === "reset") {
@@ -85,31 +86,24 @@ export default function ImageEditor() {
     }
 
     const config = transformActionMap[type];
-    setT((prev) => {
-      const next = config.apply(prev);
-      pushAction(type, config.label, next);
-      return next;
-    });
+    const id = ++idRef.current;
+    const next = [...currentTransforms, type];
+    setHistory((prev) => [
+      ...prev,
+      { id, type, label: config.label, at: new Date().toLocaleTimeString(), after: next },
+    ]);
   };
 
   const undo = () => {
     if (!history.length) return;
     const nh = history.slice(0, -1);
-    const last = nh.at(-1)?.after ?? initialT;
     setHistory(nh);
-    setT(last);
     idRef.current = nh.at(-1)?.id ?? 0; // id 연속성 유지
   };
 
   const previewStyle = useMemo<React.CSSProperties>(
-    () => ({
-      maxWidth: "100%",
-      transform: `scaleX(${t.flipX ? -1 : 1}) scaleY(${
-        t.flipY ? -1 : 1
-      }) rotate(${t.rotateDeg}deg)`,
-      transformOrigin: "center center",
-    }),
-    [t],
+    () => buildTransformStyle(currentTransforms),
+    [currentTransforms],
   );
 
   // 크롭 결과를 현재 이미지로 교체 (히스토리/변환 초기화)
@@ -240,12 +234,7 @@ export default function ImageEditor() {
                             width: "100%",
                             height: "100%",
                             objectFit: "contain",
-                            transform: `scaleX(${
-                              a.after.flipX ? -1 : 1
-                            }) scaleY(${a.after.flipY ? -1 : 1}) rotate(${
-                              a.after.rotateDeg
-                            }deg)`,
-                            transformOrigin: "center center",
+                            ...buildTransformStyle(a.after),
                           }}
                         />
                       </div>
